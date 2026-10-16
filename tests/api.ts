@@ -1,0 +1,31 @@
+import assert from 'node:assert/strict';
+import {mkdtemp,readFile,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+const folder=await mkdtemp(join(tmpdir(),'sprint-api-'));
+process.env.TURSO_DATABASE_URL='file:'+join(folder,'workspace.db');
+process.env.BOOTSTRAP_ADMIN_EMAIL='owner@example.com';
+process.env.AUTH_URL='http://localhost:3000';
+const globals=globalThis as any;globals.__testAuth=null;
+const {getDatabase}=await import('../lib/database');const db=getDatabase();
+await db.execute(await readFile('db/schema.sql','utf8'));
+const {GET,POST}=await import('../app/api/workspace/route');
+const origin='http://localhost:3000';
+const get=()=>GET(new Request(origin+'/api/workspace'));
+const post=(revision:number,action:string,payload:unknown,requestOrigin=origin)=>POST(new Request(origin+'/api/workspace',{method:'POST',headers:{'Content-Type':'application/json',Origin:requestOrigin},body:JSON.stringify({revision,action,payload})}));
+try{
+ assert.equal((await get()).status,401);
+ globals.__testAuth={userId:'unknown',email:'unknown@example.com',fullName:'Unknown'};assert.equal((await get()).status,403);assert.equal((await db.execute('SELECT * FROM workspaces')).rows.length,0);
+ globals.__testAuth={userId:'github:owner',email:'owner@example.com',fullName:'Owner'};
+ const initial=await (await get()).json() as any;assert.equal(initial.member.role,'admin');assert.equal(initial.state.employees.length,0);assert.equal(initial.state.teams.length,6);assert.equal(initial.state.allocations.length,0);
+ const team={id:'',name:'New team',color:'#527ddd',archived:false};assert.equal((await post(0,'team.save',team,'https://other.example.com')).status,403);
+ const concurrent=await Promise.all([post(0,'team.save',team),post(0,'team.save',team)]);assert.deepEqual(concurrent.map(r=>r.status).sort(),[200,409]);assert.equal((await post(0,'team.save',team)).status,409);
+ const saved=await (await get()).json() as any;assert.equal(saved.revision,1);assert.equal(saved.state.teams.filter((t:any)=>t.name==='New team').length,1);
+ assert.equal((await post(1,'member.save',{name:'Viewer',email:'viewer@example.com',role:'viewer'})).status,200);
+ globals.__testAuth={userId:'github:viewer',email:'viewer@example.com',fullName:'Viewer'};
+ const viewer=await (await get()).json() as any;assert.deepEqual(viewer.state.awards,[]);assert.deepEqual(viewer.state.members,[]);assert.equal((await post(2,'team.save',team)).status,403);assert.equal((await GET(new Request(origin+'/api/workspace?export=backup'))).status,403);
+ assert.equal((await GET(new Request(origin+'/api/workspace?export=csv&lang=cs'))).status,200);
+ globals.__testAuth={userId:'github:owner',email:'owner@example.com',fullName:'Owner'};
+ const exported=await (await GET(new Request(origin+'/api/workspace?export=backup'))).json() as any;assert.equal(exported.revision,2);assert.equal(exported.state.members.length,2);
+ console.log('✓ Real SQLite storage: owner-only initialization, no imported personal data, atomic concurrent saves, stale-revision protection, membership, viewer permissions and exports');
+}finally{db.close();await rm(folder,{recursive:true,force:true});}

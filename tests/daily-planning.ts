@@ -1,0 +1,54 @@
+import assert from 'node:assert/strict';
+import {initialState,report,rangeReport,mondayOf,isoWeek,sprintOnDate,dateAdd,workWindows,duration,dailySchedule,allocationMinutes,type State,type Member} from '../lib/planner';
+import {applyCommand} from '../lib/actions';
+import {standardWeeklyMinutes} from '../lib/roster';
+const owner:Member={id:'owner',email:'owner@example.com',name:'Owner',role:'admin'};
+let checks=0;const test=(label:string,run:()=>void)=>{run();checks++;console.log('✓ '+label);};
+function clean(){const s=initialState(owner);s.allocations=[];s.absences=[];s.employees=s.employees.slice(0,1);s.sprints=[{id:'s1',name:'October A',start:'2026-10-12',status:'draft'},{id:'s2',name:'October B',start:'2026-10-26',status:'draft'}];return s;}
+function booking(props:Record<string,unknown>={}){return {id:'',employeeId:'person-0',teamId:'platform',projectId:'core',category:'project',label:'Daily work',start:'2026-10-19',end:'2026-10-30',minutesPerDay:240,weekdays:[1,2,3,4,5],issueUrl:'',...props};}
+function save(s:State,p=booking(),reason=''){return applyCommand(s,{action:'allocation.save',payload:p,reason},owner);}
+const active=(s:State,id:string)=>applyCommand(s,{action:'sprint.activate',payload:{id}},owner);
+
+test('Monday windows and ISO weeks handle Sundays and year boundaries',()=>{
+ assert.equal(mondayOf('2026-10-18'),'2026-10-12');assert.equal(mondayOf('2026-10-19'),'2026-10-19');assert.equal(mondayOf('2027-01-01'),'2026-12-28');assert.deepEqual(isoWeek('2027-01-01'),{year:2026,week:53});assert.deepEqual(isoWeek('2027-01-04'),{year:2027,week:1});
+});
+test('one daily booking splits correctly across sprint boundaries',()=>{
+ const s=save(clean());assert.equal(s.allocations.length,2);assert.deepEqual(s.allocations.map(a=>[a.sprintId,a.start,a.end,a.minutesPerDay]),[['s1','2026-10-19','2026-10-23',240],['s2','2026-10-26','2026-10-30',240]]);assert(s.allocations.every(a=>a.windows.length===0));
+ const r=rangeReport(s,'2026-10-19','2026-11-01');assert.equal(r.allocated,2400);assert.equal(r.capacity,4800);assert.equal(r.conflictDays,0);assert.equal(r.people[0].cells[7].sprintId,'s2');
+});
+test('focus totals exclude context weeks; gaps retain capacity but no allocations',()=>{
+ let s=save(clean(),booking({start:'2026-10-12',end:'2026-10-30',minutesPerDay:60}));const focused=rangeReport(s,'2026-10-19','2026-11-01'),context=rangeReport(s,'2026-10-12','2026-11-08');assert.equal(focused.allocated,600);assert.equal(context.allocated,900);assert.equal(focused.capacity,4800);assert.equal(context.capacity,9600);const gap=rangeReport(s,'2026-11-09','2026-11-15');assert.equal(gap.people[0].cells[0].sprintId,undefined);assert.equal(gap.capacity,2400);assert.equal(gap.allocated,0);assert.equal(context.people[0].cells[21].capacity,480);assert.equal(context.people[0].cells[21].allocated,0);
+ assert.equal(sprintOnDate(s,'2026-10-25')!.id,'s1');assert.equal(sprintOnDate(s,'2026-10-26')!.id,'s2');assert.equal(sprintOnDate(s,'2026-11-09'),undefined);
+});
+test('daily work shared across teams reaches capacity without clock overlap conflicts',()=>{
+ let s=save(clean(),booking({start:'2026-10-12',end:'2026-10-12',minutesPerDay:300}));s=save(s,booking({start:'2026-10-12',end:'2026-10-12',minutesPerDay:180,teamId:'vr',projectId:'rehab'}));assert.equal(report(s,'s1').conflictDays,0);s=save(s,booking({start:'2026-10-12',end:'2026-10-12',minutesPerDay:15,category:'internal'}));assert.deepEqual(report(s,'s1').people[0].cells[0].conflicts,['0.25 h over capacity']);assert.equal(report(s,'s1').internal,15);
+});
+test('cross-sprint moves retain identity and remove the old booking',()=>{
+ let s=save(clean(),booking({start:'2026-10-12',end:'2026-10-16'}));const a=s.allocations[0];const {windows,...fields}=a;s=save(s,booking({...fields,start:'2026-10-26',end:'2026-10-30'}));assert.equal(s.allocations.length,1);assert.equal(s.allocations[0].id,a.id);assert.equal(s.allocations[0].sprintId,'s2');assert.equal(report(s,'s1').allocated,0);assert.equal(report(s,'s2').allocated,1200);
+});
+test('missing, closed, invalid, or uncovered dates cannot partially save a multi-sprint plan',()=>{
+ const s=clean();assert.throws(()=>save(s,booking({end:'2026-11-13'})),/Create a sprint/);assert.equal(s.allocations.length,0);
+ const closed=applyCommand(active(s,'s2'),{action:'sprint.close',payload:{id:'s2'}},owner);assert.throws(()=>save(closed),/Closed sprints/);assert.equal(closed.allocations.length,0);
+ assert.throws(()=>save(s,booking({start:'2026-02-30'})));assert.throws(()=>save(s,booking({minutesPerDay:17})));assert.throws(()=>save(s,booking({minutesPerDay:0})));assert.throws(()=>save(s,booking({start:'2026-10-24',end:'2026-10-25'})),/No selected working day/);
+});
+test('active sprints require reasons and validate the entire multi-sprint write',()=>{
+ let s=active(clean(),'s2');assert.throws(()=>save(s),/Add a reason/);s=save(s,booking(),'Plan upcoming work');assert.equal(report(s,'s2').allocated,1200);
+ assert.throws(()=>save(s,booking({minutesPerDay:300}),'Additional work'),/daily capacity/);assert.equal(s.allocations.length,2);assert.equal(report(s,'s1').allocated,1200);
+});
+test('closed cells in a mixed window retain final capacity and bookings',()=>{
+ let s=save(clean());s=applyCommand(active(s,'s1'),{action:'sprint.close',payload:{id:'s1'}},owner);s.employees[0].patterns=[{from:'2000-01-01',schedule:{},dailyMinutes:{...dailySchedule(),'1':120,'2':120,'3':120,'4':120,'5':120}}];const r=rangeReport(s,'2026-10-19','2026-11-01');assert.equal(r.people[0].cells[0].capacity,480);assert.equal(r.people[0].cells[7].capacity,120);assert.equal(r.allocated,2400);assert.equal(r.conflictDays,5);assert.equal(report(s,'s1').conflictDays,0);
+});
+test('an archived person visible in closed context does not inflate future capacity',()=>{
+ let s=save(clean(),booking({start:'2026-10-12',end:'2026-10-16'}));s=applyCommand(active(s,'s1'),{action:'sprint.close',payload:{id:'s1'}},owner);s.employees[0].archived=true;const context=rangeReport(s,'2026-10-19','2026-11-15');assert.equal(context.people.length,1);assert.equal(context.people[0].cells[0].capacity,480);assert.equal(context.people[0].cells[7].capacity,0);assert.equal(rangeReport(s,'2026-10-26','2026-11-08').capacity,0);
+});
+test('daily employee capacity, overrides and partial leave deduct quantities without lunch',()=>{
+ let s=clean();const e=s.employees[0];s=applyCommand(s,{action:'employee.save',payload:{id:e.id,name:e.name,discipline:'Developer',skills:e.skills,color:e.color,employmentStart:'',employmentEnd:'',effectiveFrom:'2026-10-12',dailyMinutes:dailySchedule()}},owner);
+ assert.equal(standardWeeklyMinutes(s.employees[0],'2026-10-12'),2400);assert.equal(duration(workWindows(s.employees[0],'2026-10-12',s).available),480);
+ s=applyCommand(s,{action:'absence.save',payload:{id:'',employeeId:e.id,start:'2026-10-12',end:'2026-10-12',minutesPerDay:120,fullDay:false,category:'Personal time'}},owner);assert.equal(report(s,'s1').people[0].cells[0].capacity,360);
+ s=applyCommand(s,{action:'override.save',payload:{employeeId:e.id,date:'2026-10-12',minutes:420,holidayWork:false}},owner);assert.equal(report(s,'s1').people[0].cells[0].capacity,300);
+ s=applyCommand(s,{action:'absence.save',payload:{id:'',employeeId:e.id,start:'2026-10-13',end:'2026-10-13',minutesPerDay:0,fullDay:true,category:'Leave'}},owner);assert.equal(report(s,'s1').people[0].cells[1].capacity,0);
+});
+test('legacy lunch-separated bookings preserve total daily effort',()=>{
+ const s=clean();s.allocations=[{...booking({start:'2026-10-12',end:'2026-10-12'}),id:'old',sprintId:'s1',minutesPerDay:undefined,windows:[[540,720],[780,1080]]} as any];assert.equal(allocationMinutes(s.allocations[0]),480);assert.equal(report(s,'s1').people[0].cells[0].allocated,480);assert.equal(report(s,'s1').conflictDays,0);
+});
+console.log(`${checks} daily planning checks passed`);

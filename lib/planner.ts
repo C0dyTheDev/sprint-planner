@@ -1,0 +1,72 @@
+export type Window = [number, number];
+export type Pattern = { from: string; schedule: Record<string, Window[]>; dailyMinutes?: Record<string,number> };
+export type Employee = { id: string; name: string; discipline: string; skills: string[]; color: string; archived: boolean; employmentStart: string; employmentEnd: string; patterns: Pattern[] };
+export type Allocation = { id: string; employeeId: string; sprintId: string; teamId: string; projectId: string; category: 'project'|'internal'; label: string; start: string; end: string; windows: Window[]; minutesPerDay?: number; weekdays: number[]; issueUrl: string };
+export type Absence = { id: string; employeeId: string; start: string; end: string; windows: Window[]; minutesPerDay?: number; fullDay?: boolean; category: string };
+export type Override = { id: string; employeeId: string; date: string; windows: Window[]; minutes?: number; holidayWork: boolean };
+export type Team = { id: string; name: string; color: string; archived: boolean };
+export type Project = { id: string; teamId: string; name: string; archived: boolean };
+export type Award = { id: string; employeeId: string; points: number; category: string; basis: string; reason: string; evidence: string; metric: string; before: string; after: string; unit: string; date: string; sprintId: string; author: string; voidReason: string; voidedAt: string };
+export type Member = { id: string; email: string; name: string; role: 'admin'|'scrum'|'viewer' };
+export type Snapshot = { employees: Employee[]; allocations: Allocation[]; absences: Absence[]; overrides: Override[]; holidays: { id:string; date:string; name:string }[]; teams: Team[]; capturedAt: string };
+export type Sprint = { id: string; name: string; start: string; status: 'draft'|'active'|'closed'; baseline?: Snapshot; final?: Snapshot; priorFinals?: Snapshot[] };
+export type Audit = { id: string; at: string; actor: string; action: string; detail: string; reason: string; sprintId?: string; sprintIds?: string[] };
+export type State = { version: 1; appliedSetups?: string[]; employees: Employee[]; teams: Team[]; projects: Project[]; sprints: Sprint[]; allocations: Allocation[]; absences: Absence[]; overrides: Override[]; holidays: {id:string;date:string;name:string}[]; awards: Award[]; members: Member[]; audit: Audit[]; settings: {timezone:string;buffer:number;awardCategories:string[]} };
+export type Cell = { date:string; sprintId?:string; available:Window[]; capacity:number; allocated:number; allocations:Allocation[]; conflicts:string[]; unknown:boolean; leave:boolean; holiday:boolean };
+export type PersonReport = { employee:Employee; cells:Cell[]; capacity:number; allocated:number; internal:number; remaining:number; teams:string[]; conflictDays:number; unknownDays:number };
+export type Report = { sprint:Sprint; people:PersonReport[]; capacity:number; allocated:number; internal:number; remaining:number; conflictDays:number; unknownDays:number; suggestedBudget:number };
+export function dateAdd(date:string, days:number) { const d=new Date(date+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+days);return d.toISOString().slice(0,10); }
+export function dateDiff(a:string,b:string) { return Math.round((Date.parse(b+'T12:00:00Z')-Date.parse(a+'T12:00:00Z'))/86400000); }
+export function dayOf(date:string) { return new Date(date+'T12:00:00Z').getUTCDay(); }
+export function dates(start:string, end:string) { const n=dateDiff(start,end);return Array.from({length:Math.max(0,Math.min(n+1,366))},(_,i)=>dateAdd(start,i)); }
+export function today(timezone='Europe/Prague') { const parts=new Intl.DateTimeFormat('en-CA',{timeZone:timezone,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());return ['year','month','day'].map(p=>parts.find(x=>x.type===p)?.value).join('-'); }
+export function hours(minutes:number) { return (minutes/60).toLocaleString('en-GB',{maximumFractionDigits:2}); }
+export function timeLabel(n:number) { return `${String(Math.floor(n/60)).padStart(2,'0')}:${String(n%60).padStart(2,'0')}`; }
+export function parseTime(s:string) { const [h,m]=s.split(':').map(Number);return h*60+m; }
+export function duration(w:Window[]) { return w.reduce((a,[s,e])=>a+e-s,0); }
+export function union(w:Window[]):Window[] { const out:Window[]=[];for(const [s,e] of [...w].sort((a,b)=>a[0]-b[0])) {const last=out.at(-1);if(last&&s<=last[1])last[1]=Math.max(e,last[1]);else out.push([s,e]);}return out; }
+export function subtract(w:Window[], cuts:Window[]):Window[] {let out=union(w);for(const [s,e] of union(cuts))out=out.flatMap(([a,b])=>e<=a||s>=b?[[a,b] as Window]:[...(s>a?[[a,s] as Window]:[]),...(e<b?[[e,b] as Window]:[])]);return out; }
+export function overlap(a:Window[],b:Window[]) {return a.some(([s,e])=>b.some(([x,y])=>s<y&&x<e));}
+export function patternDailyMinutes(pattern:Pattern|undefined,day:number) {return pattern?.dailyMinutes?.[String(day)]??duration(pattern?.schedule[String(day)]??[]);}
+export function allocationMinutes(allocation:Allocation){return allocation.minutesPerDay??duration(allocation.windows);}
+export function dailySchedule():Record<string,number>{return {'0':0,'1':480,'2':480,'3':480,'4':480,'5':480,'6':0};}
+export function workWindows(e:Employee,date:string,state:Pick<State,'overrides'|'absences'|'holidays'>) {
+ const patterns=[...e.patterns].sort((a,b)=>b.from.localeCompare(a.from)),pattern=patterns.find(p=>p.from<=date),over=state.overrides.find(o=>o.employeeId===e.id&&o.date===date),weekday=dayOf(date);
+ const holiday=state.holidays.some(h=>h.date===date),employed=(!e.employmentStart||date>=e.employmentStart)&&(!e.employmentEnd||date<=e.employmentEnd),leaves=state.absences.filter(a=>a.employeeId===e.id&&a.start<=date&&a.end>=date);
+ const capacity=over?(over.minutes??duration(over.windows)):patternDailyMinutes(pattern,weekday);
+ const legacyPattern=patterns.find(p=>p.from<=date&&!p.dailyMinutes);
+ const legacyBase=over&&over.minutes===undefined?over.windows:legacyPattern?.schedule[String(weekday)]??pattern?.schedule[String(weekday)]??[];
+ const legacyCuts=leaves.filter(a=>a.minutesPerDay===undefined&&!a.fullDay).flatMap(a=>a.windows);
+ const legacyLeave=legacyBase.length?duration(legacyBase)-duration(subtract(legacyBase,legacyCuts)):duration(union(legacyCuts));
+ const full=leaves.some(a=>a.fullDay||a.windows.some(([s,e])=>s===0&&e===1440));
+ const quantityLeave=leaves.reduce((sum,a)=>sum+(a.minutesPerDay??0),0);
+ const remaining=employed&&(!holiday||over?.holidayWork)&&!full?Math.max(0,capacity-legacyLeave-quantityLeave):0;
+ return {available:remaining?[[0,remaining] as Window]:[],unknown:!pattern&&!over&&employed,leave:leaves.length>0,holiday};
+}
+export function allocationOn(a:Allocation,date:string) { return a.start<=date&&a.end>=date&&a.weekdays.includes(dayOf(date)); }
+export function sprintOnDate(state:State,date:string){return state.sprints.find(s=>s.start<=date&&date<=dateAdd(s.start,13));}
+export function mondayOf(date:string){return dateAdd(date,-((dayOf(date)+6)%7));}
+export function isoWeek(date:string){const d=new Date(date+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+4-(d.getUTCDay()||7));const year=d.getUTCFullYear(),first=new Date(Date.UTC(year,0,1));return {year,week:Math.ceil((((d.getTime()-first.getTime())/86400000)+1)/7)};}
+export function sprintData(state:State,sprint:Sprint):State { return sprint.status==='closed'&&sprint.final?{...state,...sprint.final}:state; }
+export type RangeReport = Omit<Report,'sprint'> & {start:string;end:string};
+export function rangeReport(state:State,start:string,end:string,onlySprint?:Sprint):RangeReport {
+ const list=dates(start,end);const sources=list.map(date=>{const sprint=onlySprint??sprintOnDate(state,date);return {date,sprint,source:sprint?sprintData(state,sprint):state};});
+ const employeeMap=new Map<string,Employee>();for(const {source} of sources)for(const e of source.employees)if(!e.archived||source.allocations.some(a=>a.employeeId===e.id&&list.some(date=>allocationOn(a,date))))employeeMap.set(e.id,onlySprint?.status==='closed'?e:(state.employees.find(v=>v.id===e.id)??e));
+ const people=[...employeeMap.values()].map(employee=>{
+ const cells=sources.map(({date,sprint,source})=>{const e=source.employees.find(v=>v.id===employee.id);const included=e&&(!e.archived||(sprint&&source.allocations.some(a=>a.employeeId===e.id&&a.sprintId===sprint.id)));const work=e&&included?workWindows(e,date,source):{available:[] as Window[],unknown:false,leave:false,holiday:false};const alloc=sprint?source.allocations.filter(a=>a.sprintId===sprint.id&&a.employeeId===employee.id&&allocationOn(a,date)):[];const capacity=duration(work.available),allocated=alloc.reduce((sum,a)=>sum+allocationMinutes(a),0);const conflicts:string[]=[];if(allocated>capacity)conflicts.push(`${hours(allocated-capacity)} h over capacity`);if(work.unknown&&alloc.length)conflicts.push('Working schedule missing');return {date,sprintId:sprint?.id,available:work.available,capacity,allocated,allocations:alloc,conflicts,unknown:work.unknown,leave:work.leave,holiday:work.holiday};});
+ const capacity=cells.reduce((n,c)=>n+c.capacity,0),allocated=cells.reduce((n,c)=>n+c.allocated,0),internal=cells.reduce((n,c)=>n+c.allocations.filter(a=>a.category==='internal').reduce((m,a)=>m+allocationMinutes(a),0),0);
+ return {employee,cells,capacity,allocated,internal,remaining:capacity-allocated,teams:[...new Set(cells.flatMap(c=>c.allocations.map(a=>a.teamId).filter(Boolean)))],conflictDays:cells.filter(c=>c.conflicts.length>0).length,unknownDays:cells.filter(c=>c.unknown).length};
+ });const capacity=people.reduce((n,p)=>n+p.capacity,0),allocated=people.reduce((n,p)=>n+p.allocated,0),internal=people.reduce((n,p)=>n+p.internal,0);
+ return {start,end,people,capacity,allocated,internal,remaining:capacity-allocated,conflictDays:people.reduce((n,p)=>n+p.conflictDays,0),unknownDays:people.reduce((n,p)=>n+p.unknownDays,0),suggestedBudget:Math.max(0,capacity-internal)*(1-state.settings.buffer/100)};
+}
+export function report(state:State,sprintId:string):Report {const sprint=state.sprints.find(s=>s.id===sprintId)??state.sprints[0];return {sprint,...rangeReport(state,sprint.start,dateAdd(sprint.start,13),sprint)};}
+export function snapshot(state:State,sprintId:string):Snapshot {return structuredClone({employees:state.employees,teams:state.teams,allocations:state.allocations.filter(a=>a.sprintId===sprintId),absences:state.absences,overrides:state.overrides,holidays:state.holidays,capturedAt:new Date().toISOString()});}
+export function defaultSchedule():Record<string,Window[]> {return Object.fromEntries(Array.from({length:7},(_,d)=>[String(d),d===0||d===6?[]:[[540,720],[780,1080]]]));}
+export function initialState(owner:Member):State {
+ const monday=(()=>{const t=today();const d=dayOf(t);return dateAdd(t,-((d+6)%7));})();const second=dateAdd(monday,14);
+ const names=[['Emma Wilson','Developer'],['Lucas Martin','Developer'],['Sofia Chen','3D designer'],['Noah Brown','Developer'],['Mia Taylor','3D designer'],['Oliver Clark','QA engineer'],['Ava Reed','Technical artist']];
+ const colors=['#e8d8c5','#dbe6e7','#e4ddf4','#d9e4f4','#edd8df','#dfe4ca','#dfdbef'];
+ const employees=names.map(([name,discipline],i):Employee=>({id:`person-${i}`,name,discipline,skills:i===2||i===4?['Blender','Modeling','Texturing']:i===6?['Shaders','Optimization']:['Unity','C#'],color:colors[i],archived:false,employmentStart:'',employmentEnd:'',patterns:[{from:'2020-01-01',schedule:i===2?{'0':[],'1':[[540,720]],'2':[[540,720]],'3':[[540,720]],'4':[[540,720]],'5':[[540,720]],'6':[]}:defaultSchedule()}]}));
+ const a=(id:string,p:number,label:string,team:string,start:number,end:number,w:Window[]):Allocation=>({id,employeeId:`person-${p}`,sprintId:'sprint-1',teamId:team,projectId:team==='platform'?'core':'rehab',category:'project',label,start:dateAdd(monday,start),end:dateAdd(monday,end),windows:w,weekdays:[1,2,3,4,5],issueUrl:''});
+ return {version:1,employees,teams:[{id:'platform',name:'Platform',color:'#527ddd',archived:false},{id:'vr',name:'VR Rehab',color:'#9671cf',archived:false}],projects:[{id:'core',teamId:'platform',name:'Core platform',archived:false},{id:'rehab',teamId:'vr',name:'Rehabilitation scenes',archived:false}],sprints:[{id:'sprint-1',name:'Sprint 21',start:monday,status:'draft'},{id:'sprint-2',name:'Sprint 22',start:second,status:'draft'}],allocations:[a('a1',0,'API development','platform',0,4,[[540,720],[780,960]]),a('a2',0,'Code review','platform',7,10,[[540,720],[780,840]]),a('a3',1,'Build pipeline','platform',1,3,[[540,720],[780,960]]),a('a4',1,'Rehab interactions','vr',3,3,[[600,720]]),a('a5',2,'Environment models','vr',0,3,[[540,720]]),a('a6',2,'Environment models','vr',7,11,[[540,720]]),a('a7',3,'Gameplay systems','platform',0,4,[[540,720],[780,960]]),a('a8',3,'Rehab prototype','vr',7,11,[[540,720],[780,960]]),a('a9',4,'Asset optimization','vr',0,4,[[540,720],[780,960]]),a('a10',4,'New environment assets','vr',7,11,[[540,720],[780,960]]),a('a11',5,'Release testing','platform',0,3,[[540,720],[780,960]]),a('a12',5,'Bug verification','platform',7,11,[[540,720],[780,960]]),a('a13',6,'Shader setup','vr',0,4,[[540,720],[780,960]])],absences:[{id:'leave-1',employeeId:'person-2',start:dateAdd(monday,4),end:dateAdd(monday,4),windows:[[0,1440]],category:'Leave'}],overrides:[],holidays:[],awards:[{id:'award-1',employeeId:'person-2',points:2,category:'Process improvement',basis:'quantitative',reason:'Improved the model export workflow and reduced manual cleanup.',evidence:'',metric:'Export preparation',before:'30',after:'10',unit:'minutes',date:dateAdd(monday,1),sprintId:'sprint-1',author:'Demo Scrum Master',voidReason:'',voidedAt:''},{id:'award-2',employeeId:'person-5',points:1,category:'Collaboration',basis:'qualitative',reason:'Helped the team investigate a release blocker.',evidence:'',metric:'',before:'',after:'',unit:'',date:monday,sprintId:'sprint-1',author:'Demo Scrum Master',voidReason:'',voidedAt:''}],members:[owner],audit:[],settings:{timezone:'Europe/Prague',buffer:10,awardCategories:['Collaboration','Initiative','Quality','Delivery','Knowledge sharing','Process improvement']}};
+}

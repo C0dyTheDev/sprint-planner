@@ -1,0 +1,13 @@
+node_modules/
+.next/
+.vercel/
+.env*
+!.env.example
+*.tsbuildinfo
+next-env.d.ts
+*.db
+*.db-*
+*.sqlite*
+*backup*.json
+coverage/
+.DS_Store
