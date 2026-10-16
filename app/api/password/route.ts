@@ -21,6 +21,7 @@ export async function POST(request:Request){try{
   if(!members.some(m=>m.email.toLowerCase()===input.email))return json({error:'User not found'},404);
   await setPassword(input.email,input.password);return json({ok:true});
  }
- if(!('currentPassword' in input)||!await verifyPassword(user.email,input.currentPassword))return json({error:'Current password is incorrect.'},403);
+ if(!('currentPassword' in input))return json({error:'Use Change password to change your own password.'},400);
+ if(!await verifyPassword(user.email,input.currentPassword))return json({error:'Current password is incorrect.'},403);
  await setPassword(user.email,input.password);return json({ok:true});
 }catch(e){console.error('Password update failed',e instanceof Error?e.message:'Unknown error');return json({error:'Planning storage is unavailable. Please try again.'},503);}}

@@ -80,3 +80,7 @@ export async function verifyPassword(rawEmail: string, password: string) {
   });
   return false;
 }
+
+export async function anyPasswordStored() {
+  return (await (await getDatabase()).execute('SELECT 1 FROM credentials LIMIT 1')).rows.length > 0;
+}

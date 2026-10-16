@@ -9,6 +9,7 @@ const {getDatabase}=await import('../lib/database');const db=await getDatabase()
 const {canSignIn,authorizeCredentials}=await import('../lib/auth-policy');
 const {setPassword,removePassword,hashPassword,verifyHash,passwordProblem}=await import('../lib/credentials');
 const {initializeWorkspace,saveWorkspace,readWorkspace}=await import('../lib/workspace-store');
+const {missingSetup}=await import('../lib/configuration');
 const login=(email:string,password:string)=>authorizeCredentials({email,password});
 try{
  const stored=await hashPassword('correct horse');assert.equal(await verifyHash('correct horse',stored),true);assert.equal(await verifyHash('wrong horse',stored),false);assert.notEqual(stored,await hashPassword('correct horse'));
@@ -29,5 +30,7 @@ try{
  await db.execute("UPDATE credentials SET locked_until = '2000-01-01T00:00:00.000Z' WHERE email = 'member@example.com'");assert.ok(await login('member@example.com','member-password'));
  await removePassword('member@example.com');assert.equal(await login('member@example.com','member-password'),null);
  const rows=(await db.execute('SELECT password_hash FROM credentials')).rows;assert(rows.every(row=>String(row.password_hash).startsWith('scrypt$')));assert(!String((await readWorkspace())!.state.members.map(m=>JSON.stringify(m))).includes('scrypt'));
- console.log('✓ Email and password sign-in: hashed storage, bootstrap password, membership admission, lockout and password removal');
-}finally{db.close();await rm(folder,{recursive:true,force:true});}
+ process.env.AUTH_SECRET='test-secret';delete process.env.BOOTSTRAP_ADMIN_PASSWORD;assert.deepEqual(await missingSetup(),[],'the deployment password may be removed once someone has a password');
+ await db.execute('DELETE FROM credentials');assert.deepEqual(await missingSetup(),['BOOTSTRAP_ADMIN_PASSWORD']);
+ console.log('✓ Email and password sign-in: hashed storage, bootstrap password, membership admission, lockout, password removal and setup check');
+}finally{db.close();await rm(folder,{recursive:true,force:true,maxRetries:10,retryDelay:100});}

@@ -17,7 +17,7 @@ The original Sites application is separate. This repository contains application
    | `AUTH_SECRET` | Generate a random value with `openssl rand -base64 32`. Keep it secret. |
    | `AUTH_URL` | Canonical production URL, for example `https://YOUR-PROJECT.vercel.app` |
    | `BOOTSTRAP_ADMIN_EMAIL` | Email the first administrator signs in with |
-   | `BOOTSTRAP_ADMIN_PASSWORD` | First administrator's initial password, at least 10 characters. Ignored once the administrator has a stored password. |
+   | `BOOTSTRAP_ADMIN_PASSWORD` | First administrator's initial password, at least 10 characters. Ignored once the administrator has a stored password, and can then be removed. |
    | `TURSO_DATABASE_URL` | Remote database URL from Turso |
    | `TURSO_AUTH_TOKEN` | Turso database auth token |
    | `ENABLE_EXPERIMENTAL_COREPACK` | `1` |

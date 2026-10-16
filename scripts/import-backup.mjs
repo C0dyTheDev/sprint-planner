@@ -25,7 +25,21 @@ state.audit.unshift({id:randomUUID(),at:new Date().toISOString(),actor:'Workspac
 const db=createClient({url:process.env.TURSO_DATABASE_URL,authToken:process.env.TURSO_AUTH_TOKEN});
 try{
  await db.executeMultiple(await readFile(new URL('../db/schema.sql',import.meta.url),'utf8'));
- const result=await db.execute({sql:'INSERT OR IGNORE INTO workspaces (id,revision,data,updated_at) VALUES (?,?,?,?)',args:['main',backup.revision,JSON.stringify(state),new Date().toISOString()]});
- if(result.rowsAffected!==1)throw new Error('Import refused: this database already has a workspace. Use a fresh database; existing data was not changed.');
- console.log(`Imported ${state.employees.length} employee records, ${state.sprints.length} sprints, and ${state.allocations.length} allocations. Administrator email configured.`);
+ const refused='Import refused: this database already has a workspace with planning data. Use a fresh database; existing data was not changed.';
+ const current=(await db.execute("SELECT revision,data FROM workspaces WHERE id='main'")).rows[0];
+ let kept=0;
+ if(!current){
+  const result=await db.execute({sql:'INSERT OR IGNORE INTO workspaces (id,revision,data,updated_at) VALUES (?,?,?,?)',args:['main',backup.revision,JSON.stringify(state),new Date().toISOString()]});
+  if(result.rowsAffected!==1)throw new Error(refused);
+ }else{
+  // Signing in before importing creates a workspace with only accounts and defaults. Replace it, keeping those accounts.
+  const live=JSON.parse(String(current.data));
+  if(['employees','allocations','absences','overrides','awards'].some(key=>live[key]?.length))throw new Error(refused);
+  for(const member of live.members){const at=state.members.findIndex(m=>m.email.toLowerCase()===member.email.toLowerCase());if(at<0)state.members.push(member);else state.members[at].role=member.role;kept++;}
+  state.members.find(m=>m.email.toLowerCase()===email).role='admin';
+  // A higher revision makes any open planner tab refresh instead of saving over the import.
+  const result=await db.execute({sql:"UPDATE workspaces SET revision=?, data=?, updated_at=? WHERE id='main' AND revision=?",args:[Math.max(backup.revision,Number(current.revision)+1),JSON.stringify(state),new Date().toISOString(),current.revision]});
+  if(result.rowsAffected!==1)throw new Error('Import refused: the workspace changed during the import. Run it again.');
+ }
+ console.log(`Imported ${state.employees.length} employee records, ${state.sprints.length} sprints, and ${state.allocations.length} allocations. Administrator email configured.${kept?` Kept ${kept} existing account(s) and their passwords.`:''}`);
 }finally{db.close();}

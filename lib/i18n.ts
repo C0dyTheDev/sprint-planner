@@ -8,7 +8,7 @@ export const czech:Record<string,string> = {
   'At least 10 characters. Share it privately; the person can change it after signing in.':'Alespoň 10 znaků. Předejte ho osobně; po přihlášení si ho uživatel může změnit.',
   'The person signs in with this email and password. No invitation email is sent.':'Uživatel se přihlašuje tímto e-mailem a heslem. Pozvánka e-mailem se neodesílá.',
   'Enter a password for the new member.':'Zadejte heslo pro nového uživatele.','Password must be at least 10 characters.':'Heslo musí mít alespoň 10 znaků.',
-  'Password must be at most 200 characters.':'Heslo může mít nejvýše 200 znaků.','Current password is incorrect.':'Současné heslo není správné.',
+  'Password must be at most 200 characters.':'Heslo může mít nejvýše 200 znaků.','Current password is incorrect.':'Současné heslo není správné.','Use Change password to change your own password.':'Vlastní heslo změníte tlačítkem Změnit heslo.',
 
   'Absences are deducted from this daily capacity.':'Z této denní kapacity se odečítá zadaná nepřítomnost.',
   "Hours per day":"Hodiny za den",
