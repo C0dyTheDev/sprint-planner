@@ -1,7 +1,14 @@
 export type Language = 'en' | 'cs';
 export const localeFor = (language:Language) => language === 'cs' ? 'cs-CZ' : 'en-GB';
 export const czech:Record<string,string> = {
-  'Sign in with GitHub':'Přihlásit se přes GitHub',
+  'Sign in':'Přihlásit se','Signing in…':'Přihlašování…','Email':'E-mail','Password':'Heslo',
+  'Incorrect email or password.':'Nesprávný e-mail nebo heslo.','Sign-in is temporarily unavailable. Please try again.':'Přihlášení je dočasně nedostupné. Zkuste to znovu.',
+  'Change password':'Změnit heslo','Current password':'Současné heslo','New password':'Nové heslo','Password saved':'Heslo bylo uloženo',
+  'At least 10 characters.':'Alespoň 10 znaků.','Leave blank to keep the current password.':'Ponechte prázdné, pokud heslo nechcete měnit.',
+  'At least 10 characters. Share it privately; the person can change it after signing in.':'Alespoň 10 znaků. Předejte ho osobně; po přihlášení si ho uživatel může změnit.',
+  'The person signs in with this email and password. No invitation email is sent.':'Uživatel se přihlašuje tímto e-mailem a heslem. Pozvánka e-mailem se neodesílá.',
+  'Enter a password for the new member.':'Zadejte heslo pro nového uživatele.','Password must be at least 10 characters.':'Heslo musí mít alespoň 10 znaků.',
+  'Password must be at most 200 characters.':'Heslo může mít nejvýše 200 znaků.','Current password is incorrect.':'Současné heslo není správné.',
 
   'Absences are deducted from this daily capacity.':'Z této denní kapacity se odečítá zadaná nepřítomnost.',
   "Hours per day":"Hodiny za den",
@@ -85,7 +92,7 @@ export const czech:Record<string,string> = {
   'Planning buffer':'Plánovací rezerva','Award scale':'Bodová škála','1–3 points':'1–3 body','1 useful · 2 substantial · 3 exceptional contribution.':'1 užitečný · 2 významný · 3 výjimečný přínos.',
   'Holidays':'Svátky','Add holiday':'Přidat svátek','No holidays added. Add the dates used by your organization.':'Žádné svátky nejsou přidané. Doplňte data platná pro vaši organizaci.',
   'Remove holiday':'Odebrat svátek','Manager access':'Přístup manažerů','Add manager':'Přidat manažera',
-  'App roles govern planning actions. Users sign in with the verified GitHub email entered here; adding a role does not send an invitation.':'Role určují oprávnění v aplikaci. Uživatelé se přihlašují přes GitHub s ověřeným e-mailem zadaným zde. Přidáním role se pozvánka neodesílá.',
+  'App roles govern planning actions. People sign in with the email and password set here; no invitation email is sent.':'Role určují oprávnění v aplikaci. Uživatelé se přihlašují e-mailem a heslem nastaveným zde. Pozvánka e-mailem se neodesílá.',
   'Edit access for {name}':'Upravit oprávnění: {name}','Remove access for {name}':'Odebrat oprávnění: {name}','Remove manager access':'Odebrat přístup manažera',
   'Data export':'Export dat','Download backup':'Stáhnout zálohu',
   'Export all planning records, snapshots, recognition, and audit history as JSON. Treat this file as private employee data.':'Exportujte plán, uložené stavy, ocenění a historii změn do JSON. Soubor obsahuje soukromé údaje o členech týmu.',
@@ -117,9 +124,9 @@ export const czech:Record<string,string> = {
   'Sprints cover 14 calendar days. Copied assignments are shifted to the new dates; availability is recalculated, and conflicts remain visible in the draft.':'Sprint trvá 14 kalendářních dnů. Zkopírovaná práce se posune na nová data. Dostupnost se přepočítá a případné kolize budou viditelné v návrhu.',
   'Team name':'Název týmu','Timeline color':'Barva v časové ose','Archive team':'Archivovat tým','Project name':'Název projektu','Archive project':'Archivovat projekt',
   'Organization timezone':'Časové pásmo organizace','Planning buffer (%)':'Plánovací rezerva (%)','Award categories':'Kategorie ocenění','One category per line.':'Jedna kategorie na řádek.',
-  'Holiday name':'Název svátku','ChatGPT account email':'E-mail účtu ChatGPT','Role':'Role','Scrum Master · edit planning and recognition':'Scrum Master · úpravy plánu a ocenění',
+  'Holiday name':'Název svátku','Role':'Role','Scrum Master · edit planning and recognition':'Scrum Master · úpravy plánu a ocenění',
   'Administrator · manage access and settings':'Administrátor · správa přístupu a nastavení','Viewer · read planning only':'Čtenář · pouze zobrazení plánu',
-  'This grants an app role to the verified GitHub email. No invitation is sent by this form.':'Tímto přidělíte roli v aplikaci ověřenému e-mailu na GitHubu. Tento formulář neodesílá pozvánku.',
+  
   'Reason (required)':'Důvod (povinný)','Reason (optional)':'Důvod (nepovinný)','Edit profile & schedule':'Upravit profil a rozvrh',
   'Daily capacity ·':'Denní kapacita ·','Recorded absences':'Zadané nepřítomnosti','Remove absence':'Odebrat nepřítomnost',
   'Availability will be recalculated. Existing allocations remain.':'Dostupnost se přepočítá. Existující práce zůstane v plánu.',

@@ -7,7 +7,7 @@ loadEnvConfig(process.cwd());
 const filename=process.argv[2];
 if(!filename||process.argv.length!==3)throw new Error('Usage: pnpm db:import /secure/path/sprint-overview-backup.json');
 const email=process.env.BOOTSTRAP_ADMIN_EMAIL?.trim().toLowerCase();
-if(!email||!email.includes('@'))throw new Error('Set BOOTSTRAP_ADMIN_EMAIL to your verified GitHub email');
+if(!email||!email.includes('@'))throw new Error('Set BOOTSTRAP_ADMIN_EMAIL to the administrator sign-in email');
 if(!process.env.TURSO_DATABASE_URL)throw new Error('Set TURSO_DATABASE_URL');
 const backup=JSON.parse(await readFile(filename,'utf8'));
 const state=backup.state;
@@ -24,7 +24,7 @@ if(existing)existing.role='admin';else state.members.push({id:randomUUID(),name:
 state.audit.unshift({id:randomUUID(),at:new Date().toISOString(),actor:'Workspace import',action:'workspace.import',detail:'Imported planning backup',reason:'Migrated to the Vercel deployment.'});
 const db=createClient({url:process.env.TURSO_DATABASE_URL,authToken:process.env.TURSO_AUTH_TOKEN});
 try{
- await db.execute(await readFile(new URL('../db/schema.sql',import.meta.url),'utf8'));
+ await db.executeMultiple(await readFile(new URL('../db/schema.sql',import.meta.url),'utf8'));
  const result=await db.execute({sql:'INSERT OR IGNORE INTO workspaces (id,revision,data,updated_at) VALUES (?,?,?,?)',args:['main',backup.revision,JSON.stringify(state),new Date().toISOString()]});
  if(result.rowsAffected!==1)throw new Error('Import refused: this database already has a workspace. Use a fresh database; existing data was not changed.');
  console.log(`Imported ${state.employees.length} employee records, ${state.sprints.length} sprints, and ${state.allocations.length} allocations. Administrator email configured.`);

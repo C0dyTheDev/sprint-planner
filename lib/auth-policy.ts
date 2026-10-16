@@ -1,5 +1,7 @@
+import { z } from 'zod';
 import { isBootstrapAdmin } from './bootstrap';
 import { readWorkspace } from './workspace-store';
+import { verifyPassword, PASSWORD_MAX_LENGTH } from './credentials';
 
 export async function canSignIn(email: string) {
   const workspace = await readWorkspace();
@@ -8,13 +10,16 @@ export async function canSignIn(email: string) {
     : isBootstrapAdmin(email);
 }
 
-export async function hasVerifiedGitHubEmail(email: string, accessToken: string) {
-  const response = await fetch('https://api.github.com/user/emails', {
-    headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
-    cache: 'no-store',
-  });
-  if (!response.ok) return false;
-  const addresses: unknown = await response.json();
-  return Array.isArray(addresses) && addresses.some(item =>
-    typeof item?.email === 'string' && item.verified === true && item.email.toLowerCase() === email.toLowerCase());
+const credentialsSchema = z.object({
+  email: z.string().trim().toLowerCase().email().max(200),
+  password: z.string().min(1).max(PASSWORD_MAX_LENGTH),
+});
+
+export async function authorizeCredentials(input: unknown) {
+  const parsed = credentialsSchema.safeParse(input);
+  if (!parsed.success) return null;
+  const { email, password } = parsed.data;
+  // The password is checked first so failed attempts are throttled even for removed members.
+  if (!await verifyPassword(email, password) || !await canSignIn(email)) return null;
+  return { id: `user:${email}`, email, name: email };
 }

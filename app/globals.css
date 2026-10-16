@@ -82,3 +82,4 @@
 .room-row:focus-visible{outline-offset:-3px}
 
 .signin-button{width:100%;border:0;cursor:pointer}.logout-button{background:none;border:0;padding:4px;color:#81909e;cursor:pointer}.boot .logout-button{color:#0b8a82;font-size:11px}
+.signin-form{display:flex;flex-direction:column;gap:14px;text-align:left}.signin-form .error-banner{margin:0}.signin-form .signin-button{margin-top:4px}

@@ -1,9 +1,10 @@
 import { createClient, type Client } from '@libsql/client';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 
-let client: Client | undefined;
+let ready: Promise<Client> | undefined;
 
-export function getDatabase(): Client {
-  if (client) return client;
+function connect(): Client {
   const url = process.env.TURSO_DATABASE_URL;
   const authToken = process.env.TURSO_AUTH_TOKEN;
   if (!url) throw new Error('TURSO_DATABASE_URL is not configured');
@@ -13,6 +14,22 @@ export function getDatabase(): Client {
   if (/^(libsql|https):\/\//.test(url) && !authToken) {
     throw new Error('TURSO_AUTH_TOKEN is not configured');
   }
-  client = createClient({ url, authToken });
-  return client;
+  return createClient({ url, authToken });
+}
+
+async function open() {
+  const client = connect();
+  try {
+    // Every schema statement is idempotent, so each instance applies it once before first use.
+    await client.executeMultiple(await readFile(join(process.cwd(), 'db', 'schema.sql'), 'utf8'));
+    return client;
+  } catch (error) {
+    client.close();
+    throw error;
+  }
+}
+
+export function getDatabase(): Promise<Client> {
+  ready ??= open().catch(error => { ready = undefined; throw error; });
+  return ready;
 }
