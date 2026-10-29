@@ -180,6 +180,16 @@ export const czech:Record<string,string> = {
   'holiday.save':'Přidání svátku','holiday.remove':'Odebrání svátku','sprint.add':'Vytvoření sprintu','sprint.activate':'Zahájení sprintu','sprint.close':'Uzavření sprintu','sprint.reopen':'Opětovné otevření sprintu',
   'award.add':'Přidělení ocenění','award.void':'Zrušení ocenění','team.save':'Upravení týmu','project.save':'Upravení projektu','settings.save':'Upravení nastavení',
   'member.save':'Upravení přístupu','member.remove':'Odebrání přístupu',
+  'holiday.import':'Import státních svátků','Import Czech holidays':'Importovat české svátky',
+  '{count} new holidays will be added. Dates already in the list are kept as they are.':'Přidá se {count} nových svátků. Data, která už v seznamu jsou, zůstanou beze změny.',
+  'Enter a year between 2000 and 2100.':'Zadejte rok mezi 2000 a 2100.','All public holidays for this year are already added':'Všechny státní svátky pro tento rok už jsou přidané.',
+  'Find free people':'Najít volné lidi','Skill':'Dovednost','Any skill':'Jakákoli dovednost','Any discipline':'Jakákoli profese',
+  'Choose a date range of up to 90 days, the hours per day and at least one weekday.':'Vyberte období do 90 dnů, počet hodin denně a alespoň jeden den v týdnu.',
+  'Nobody is free':'Nikdo není volný','Try fewer hours, other days or another skill.':'Zkuste méně hodin, jiné dny nebo jinou dovednost.',
+  '{fit} of {days} days have {hours} h free':'{fit} z {days} dnů má volných {hours} h','{hours} h free in total':'celkem volných {hours} h',
+  'People with free capacity on the selected days, most available first. Hours already planned in any team are counted.':'Lidé s volnou kapacitou ve vybraných dnech, od nejvolnějších. Započítávají se hodiny už naplánované v jakémkoli týmu.',
+  'Adds the Czech public holidays for the year. Capacity is zero on those days unless someone is set to work.':'Přidá české státní svátky pro daný rok. V tyto dny je kapacita nulová, pokud někdo nemá nastavenou práci.',
+  'Fully free':'Zcela volný','Partly free':'Částečně volný','Little room':'Málo prostoru','Plan work':'Naplánovat práci',
 };
 export function translate(language:Language, key:string, values:Record<string,string|number>={}):string {
  const template=language==='cs'?(czech[key]??key):key;

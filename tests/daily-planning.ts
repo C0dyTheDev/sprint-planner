@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import {initialState,report,rangeReport,mondayOf,isoWeek,sprintOnDate,dateAdd,workWindows,duration,dailySchedule,allocationMinutes,type State,type Member} from '../lib/planner';
 import {applyCommand} from '../lib/actions';
-import {standardWeeklyMinutes} from '../lib/roster';
+import {standardWeeklyMinutes,findFreePeople} from '../lib/roster';
+import {czechHolidays,easterSunday} from '../lib/holidays';
 const owner:Member={id:'owner',email:'owner@example.com',name:'Owner',role:'admin'};
 let checks=0;const test=(label:string,run:()=>void)=>{run();checks++;console.log('✓ '+label);};
 function clean(){const s=initialState(owner);s.allocations=[];s.absences=[];s.employees=s.employees.slice(0,1);s.sprints=[{id:'s1',name:'October A',start:'2026-10-12',status:'draft'},{id:'s2',name:'October B',start:'2026-10-26',status:'draft'}];return s;}
@@ -62,5 +63,15 @@ test('fitted days grow back automatically when capacity frees up, but never past
  s=applyCommand(s,{action:'override.save',payload:{employeeId:'person-0',date:'2026-10-13',minutes:360,holidayWork:false}},owner);assert.equal(report(s,'s1').people[0].cells[1].allocated,360);assert.equal(report(s,'s1').conflictDays,0);
  s=applyCommand(s,{action:'override.remove',payload:{employeeId:'person-0',date:'2026-10-13'}},owner);const fitted=s.allocations.find(a=>a.minutesPerDay===480)!;assert.equal(allocationMinutes(fitted,'2026-10-13'),420);
  s=applyCommand(s,{action:'allocation.remove',payload:{id:s.allocations.find(a=>a.category==='internal')!.id}},owner);assert.equal(s.allocations[0].dayMinutes,undefined);assert.equal(report(s,'s1').allocated,1440);
+});
+test('Czech public holidays follow Easter and import only missing dates',()=>{
+ assert.equal(easterSunday(2026),'2026-04-05');assert.equal(easterSunday(2027),'2027-03-28');const y=czechHolidays(2026);assert.equal(y.length,13);assert(y.some(h=>h.date==='2026-04-03'&&h.name==='Velký pátek'));assert(y.some(h=>h.date==='2026-04-06'));assert.equal(czechHolidays(2015).length,12);
+ let s=clean();s.holidays=[{id:'own',date:'2026-12-24',name:'Company day'}];s=applyCommand(s,{action:'holiday.import',payload:{year:2026}},owner);assert.equal(s.holidays.length,13);assert.equal(s.holidays.find(h=>h.date==='2026-12-24')!.name,'Company day');assert.equal(report(s,'s2').people[0].cells[2].capacity,0);
+ assert.throws(()=>applyCommand(s,{action:'holiday.import',payload:{year:2026}},owner),/already added/);assert.throws(()=>applyCommand(clean(),{action:'holiday.import',payload:{year:2026}},{...owner,role:'scrum'}),/Administrator/);
+});
+test('free-people finder ranks by days with enough free hours and filters by skill',()=>{
+ const s=initialState(owner);s.allocations=[];s.absences=[];s.sprints=[{id:'s1',name:'A',start:'2026-10-12',status:'draft'}];let st=save(s,booking({start:'2026-10-12',end:'2026-10-14',minutesPerDay:360}));
+ const q={start:'2026-10-12',end:'2026-10-16',weekdays:[1,2,3,4,5],minutesPerDay:240};const all=findFreePeople(st,q);const emma=all.find(r=>r.employee.id==='person-0')!;assert.deepEqual([emma.fitDays,emma.days,emma.freeMinutes],[2,5,1320]);assert.equal(all[0].fitDays,5);assert(all.findIndex(r=>r.employee.id==='person-0')>all.findIndex(r=>r.employee.id==='person-1'));
+ assert.deepEqual(findFreePeople(st,{...q,skill:'Blender'}).map(r=>r.employee.id).sort(),['person-2','person-4']);assert.equal(findFreePeople(st,{...q,skill:'Blender'}).find(r=>r.employee.id==='person-2')!.fitDays,0);
 });
 console.log(`${checks} daily planning checks passed`);
