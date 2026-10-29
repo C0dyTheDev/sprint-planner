@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { dateAdd, dateDiff, dayOf, dates, fitAllocation, report, snapshot, sprintOnDate, type State, type Member, type Allocation } from './planner';
+import { dateAdd, dateDiff, dayOf, dates, fitAllocation, refitAllocations, report, snapshot, sprintOnDate, type State, type Member, type Allocation } from './planner';
 const id=z.string().min(1).max(100);const text=z.string().trim().min(1).max(200);const date=z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(v=>Number.isFinite(Date.parse(v+'T12:00:00Z'))&&new Date(v+'T12:00:00Z').toISOString().slice(0,10)===v,'Invalid date');
 const optionalDate=z.union([z.literal(''),date]);const url=z.string().max(1000).refine(v=>!v||/^https?:\/\//i.test(v),'Use an https:// or http:// URL');
 const dailyMinutes=z.number().int().min(0).max(1440).refine(v=>v%15===0,'Use daily hours in 15-minute increments');
@@ -48,5 +48,6 @@ export function applyCommand(original:State,command:Command,actor:Member):State 
  case 'member.remove': {admin();const v=z.object({id}).parse(p);demand(v.id!==actor.id,'You cannot remove your own access');const m=known(state.members,v.id,'User');state.members=state.members.filter(m=>m.id!==v.id);detail=m.email;break;}
  default: throw new DomainError('Unknown operation');
  }
+ refitAllocations(state);
  demand(state.employees.length<=300&&state.allocations.length<=15000&&state.sprints.length<=200,'Workspace size limit reached');state.audit.unshift({id:crypto.randomUUID(),at:new Date().toISOString(),actor:actor.name||actor.email,action:command.action,detail,reason,...(auditSprintIds.length?{sprintIds:auditSprintIds}:{}),sprintId:auditSprintIds[0]??(p as any)?.sprintId??(['sprint.activate','sprint.close','sprint.reopen'].includes(command.action)?(p as any)?.id:undefined)});return state;
 }

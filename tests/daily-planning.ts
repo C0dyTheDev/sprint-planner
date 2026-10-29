@@ -57,4 +57,10 @@ test('multi-day bookings fit each day to that day\'s capacity; existing unflagge
  s=applyCommand(s,{action:'absence.save',payload:{id:'',employeeId:'person-0',start:'2026-10-14',end:'2026-10-14',minutesPerDay:0,fullDay:true,category:'Leave'}},owner);assert.equal(report(s,'s1').conflictDays,1);
  const legacy=clean();legacy.overrides=[{id:'o',employeeId:'person-0',date:'2026-10-13',windows:[],minutes:240,holidayWork:false}];legacy.allocations=[{...booking({start:'2026-10-12',end:'2026-10-14',minutesPerDay:480}),id:'old',sprintId:'s1',windows:[]} as any];assert.equal(report(legacy,'s1').conflictDays,1);
 });
+test('fitted days grow back automatically when capacity frees up, but never past free time',()=>{
+ let s=applyCommand(clean(),{action:'override.save',payload:{employeeId:'person-0',date:'2026-10-13',minutes:240,holidayWork:false}},owner);s=save(s,booking({start:'2026-10-12',end:'2026-10-14',minutesPerDay:480}));s=save(s,booking({start:'2026-10-13',end:'2026-10-13',minutesPerDay:60,category:'internal'}));
+ s=applyCommand(s,{action:'override.save',payload:{employeeId:'person-0',date:'2026-10-13',minutes:360,holidayWork:false}},owner);assert.equal(report(s,'s1').people[0].cells[1].allocated,360);assert.equal(report(s,'s1').conflictDays,0);
+ s=applyCommand(s,{action:'override.remove',payload:{employeeId:'person-0',date:'2026-10-13'}},owner);const fitted=s.allocations.find(a=>a.minutesPerDay===480)!;assert.equal(allocationMinutes(fitted,'2026-10-13'),420);
+ s=applyCommand(s,{action:'allocation.remove',payload:{id:s.allocations.find(a=>a.category==='internal')!.id}},owner);assert.equal(s.allocations[0].dayMinutes,undefined);assert.equal(report(s,'s1').allocated,1440);
+});
 console.log(`${checks} daily planning checks passed`);

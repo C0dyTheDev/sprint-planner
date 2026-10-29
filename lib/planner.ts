@@ -45,6 +45,8 @@ export function workWindows(e:Employee,date:string,state:Pick<State,'overrides'|
  const remaining=employed&&(!holiday||over?.holidayWork)&&!full?Math.max(0,capacity-legacyLeave-quantityLeave):0;
  return {available:remaining?[[0,remaining] as Window]:[],unknown:!pattern&&!over&&employed,leave:leaves.length>0,holiday};
 }
+// Grows fitted days back toward the requested hours when capacity frees up; never shrinks them and never fills past the day's free time.
+export function refitAllocations(state:State){const closed=new Set(state.sprints.filter(s=>s.status==='closed').map(s=>s.id));for(const a of state.allocations){if(!a.dayMinutes||closed.has(a.sprintId))continue;const e=state.employees.find(v=>v.id===a.employeeId);if(!e)continue;const requested=allocationMinutes({...a,dayMinutes:undefined});const fitted={...a.dayMinutes};for(const [date,old] of Object.entries(a.dayMinutes)){if(!allocationOn(a,date)){delete fitted[date];continue;}const work=workWindows(e,date,state);if(work.unknown)continue;const others=state.allocations.filter(o=>o!==a&&o.employeeId===a.employeeId&&!closed.has(o.sprintId)&&allocationOn(o,date)).reduce((n,o)=>n+allocationMinutes(o,date),0);const next=Math.min(requested,Math.max(old,duration(work.available)-others));if(next>=requested)delete fitted[date];else fitted[date]=next;}if(Object.keys(fitted).length)a.dayMinutes=fitted;else delete a.dayMinutes;}}
 export function allocationOn(a:Allocation,date:string) { return a.start<=date&&a.end>=date&&a.weekdays.includes(dayOf(date)); }
 export function sprintOnDate(state:State,date:string){return state.sprints.find(s=>s.start<=date&&date<=dateAdd(s.start,13));}
 export function mondayOf(date:string){return dateAdd(date,-((dayOf(date)+6)%7));}
