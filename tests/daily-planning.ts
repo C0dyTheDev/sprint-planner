@@ -51,4 +51,10 @@ test('daily employee capacity, overrides and partial leave deduct quantities wit
 test('legacy lunch-separated bookings preserve total daily effort',()=>{
  const s=clean();s.allocations=[{...booking({start:'2026-10-12',end:'2026-10-12'}),id:'old',sprintId:'s1',minutesPerDay:undefined,windows:[[540,720],[780,1080]]} as any];assert.equal(allocationMinutes(s.allocations[0]),480);assert.equal(report(s,'s1').people[0].cells[0].allocated,480);assert.equal(report(s,'s1').conflictDays,0);
 });
+test('multi-day bookings fit each day to that day\'s capacity; existing unflagged bookings still report overflow',()=>{
+ let s=active(clean(),'s1');s=applyCommand(s,{action:'override.save',payload:{employeeId:'person-0',date:'2026-10-13',minutes:240,holidayWork:false}},owner);s=save(s,booking({start:'2026-10-12',end:'2026-10-14',minutesPerDay:480}),'Plan the week');const cells=report(s,'s1').people[0].cells;assert.deepEqual(cells.slice(0,3).map(c=>c.allocated),[480,240,480]);assert.equal(report(s,'s1').conflictDays,0);assert.equal(report(s,'s1').allocated,1200);
+ assert.throws(()=>save(s,booking({start:'2026-10-13',end:'2026-10-13',minutesPerDay:60,category:'internal'}),'Meeting'),/daily capacity/);
+ s=applyCommand(s,{action:'absence.save',payload:{id:'',employeeId:'person-0',start:'2026-10-14',end:'2026-10-14',minutesPerDay:0,fullDay:true,category:'Leave'}},owner);assert.equal(report(s,'s1').conflictDays,1);
+ const legacy=clean();legacy.overrides=[{id:'o',employeeId:'person-0',date:'2026-10-13',windows:[],minutes:240,holidayWork:false}];legacy.allocations=[{...booking({start:'2026-10-12',end:'2026-10-14',minutesPerDay:480}),id:'old',sprintId:'s1',windows:[]} as any];assert.equal(report(legacy,'s1').conflictDays,1);
+});
 console.log(`${checks} daily planning checks passed`);
