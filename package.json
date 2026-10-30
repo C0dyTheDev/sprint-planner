@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit",
     "test": "node tests/run.mjs",
     "db:migrate": "node scripts/migrate.mjs",
-    "db:import": "node scripts/import-backup.mjs"
+    "db:import": "node scripts/import-backup.mjs",
+    "theme:dark": "node scripts/build-dark-theme.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

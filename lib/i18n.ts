@@ -205,6 +205,7 @@ export const czech:Record<string,string> = {
   'Choose a 1-point award or a note.':'Vyberte ocenění za 1 bod, nebo poznámku.','Describe the contribution in at least 5 characters.':'Popište přínos alespoň 5 znaky.','Award categories added':'Přidány kategorie ocenění',
   'award.edit':'Úprava ocenění','Edit award':'Upravit ocenění','Edit note':'Upravit poznámku','Reason for the change':'Důvod změny','Kept with the earlier version in the award history.':'Uloží se s předchozí verzí do historie ocenění.',
   'Edited {date} by {name}':'Upraveno {date} ({name})','Voided awards cannot be edited':'Zrušená ocenění nelze upravit.','Explain why this award is being changed':'Vysvětlete, proč se ocenění mění.','Nothing changed':'Nic se nezměnilo.',
+  'Theme':'Vzhled','Light':'Světlý','Dark':'Tmavý','Match system':'Podle systému',
   'Fully free':'Zcela volný','Partly free':'Částečně volný','Little room':'Málo prostoru','Plan work':'Naplánovat práci',
 };
 export function translate(language:Language, key:string, values:Record<string,string|number>={}):string {
