@@ -74,4 +74,10 @@ test('free-people finder ranks by days with enough free hours and filters by ski
  const q={start:'2026-10-12',end:'2026-10-16',weekdays:[1,2,3,4,5],minutesPerDay:240};const all=findFreePeople(st,q);const emma=all.find(r=>r.employee.id==='person-0')!;assert.deepEqual([emma.fitDays,emma.days,emma.freeMinutes],[2,5,1320]);assert.equal(all[0].fitDays,5);assert(all.findIndex(r=>r.employee.id==='person-0')>all.findIndex(r=>r.employee.id==='person-1'));
  assert.deepEqual(findFreePeople(st,{...q,skill:'Blender'}).map(r=>r.employee.id).sort(),['person-2','person-4']);assert.equal(findFreePeople(st,{...q,skill:'Blender'}).find(r=>r.employee.id==='person-2')!.fitDays,0);
 });
+test('public holidays count as zero planned hours, so bookings across them never conflict',()=>{
+ let s=save(clean(),booking({start:'2026-10-26',end:'2026-10-30',minutesPerDay:480}));s.holidays=[{id:'h',date:'2026-10-28',name:'Den vzniku státu'}];let cell=report(s,'s2').people[0].cells[2];
+ assert.deepEqual([cell.capacity,cell.allocated,cell.conflicts.length],[0,0,0]);assert.equal(report(s,'s2').conflictDays,0);assert.equal(report(s,'s2').people[0].allocated,1920);
+ s=active(s,'s2');s=applyCommand(s,{action:'override.save',payload:{employeeId:'person-0',date:'2026-10-28',minutes:240,holidayWork:true}},owner);cell=report(s,'s2').people[0].cells[2];assert.deepEqual([cell.capacity,cell.allocated],[240,480]);assert.equal(cell.conflicts.length,1);
+ const leave=applyCommand(save(clean(),booking({start:'2026-10-26',end:'2026-10-26',minutesPerDay:480})),{action:'absence.save',payload:{id:'',employeeId:'person-0',start:'2026-10-26',end:'2026-10-26',minutesPerDay:0,fullDay:true,category:'Leave'}},owner);assert.equal(report(leave,'s2').conflictDays,1);
+});
 console.log(`${checks} daily planning checks passed`);
