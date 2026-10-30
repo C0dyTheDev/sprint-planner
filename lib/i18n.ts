@@ -199,6 +199,10 @@ export const czech:Record<string,string> = {
   '{name}: week of {date} lists {hours} h, more than fits around leave and holidays; {capped} h will be planned.':'{name}: týden od {date} uvádí {hours} h, víc než se vejde mimo dovolenou a svátky; naplánuje se {capped} h.',
   'No sheet with a "Jméno" column was found':'Nebyl nalezen list se sloupcem „Jméno“.','The quarter start and end dates were not found in the Kapacity sheet':'V listu Kapacity nebylo nalezeno datum začátku a konce kvartálu.',
   'This file is not a valid .xlsx workbook':'Soubor není platný sešit .xlsx.','This file could not be read.':'Soubor se nepodařilo načíst.','The spreadsheet period must be at most 200 days':'Období v tabulce může mít nejvýše 200 dnů.',
+  'Add note':'Přidat poznámku','Type':'Typ','Note (0 points)':'Poznámka (0 bodů)','A note adds no points.':'Poznámka nepřidává žádné body.','Note':'Poznámka','Write the note.':'Napište poznámku.',
+  'Added by':'Přidal(a)','Void note':'Zrušit poznámku','Void this note':'Zrušit tuto poznámku','The note stays in the ledger, marked as voided.':'Poznámka zůstane v evidenci, označená jako zrušená.','Notes':'Poznámky',
+  'One category per line. Write "Group / Category" to group categories in the award form.':'Jedna kategorie na řádek. Zápisem „Skupina / Kategorie“ kategorie ve formuláři seskupíte.',
+  'Choose a 1-point award or a note.':'Vyberte ocenění za 1 bod, nebo poznámku.','Describe the contribution in at least 5 characters.':'Popište přínos alespoň 5 znaky.','Award categories added':'Přidány kategorie ocenění',
   'Fully free':'Zcela volný','Partly free':'Částečně volný','Little room':'Málo prostoru','Plan work':'Naplánovat práci',
 };
 export function translate(language:Language, key:string, values:Record<string,string|number>={}):string {

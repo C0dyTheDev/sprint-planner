@@ -1,4 +1,5 @@
 import { initialState, dateAdd, dateDiff, today, type Member, type State } from './planner';
+import { applySetups } from './setups';
 
 export function isBootstrapAdmin(email: string) {
   const expected = process.env.BOOTSTRAP_ADMIN_EMAIL?.trim().toLowerCase();
@@ -27,5 +28,6 @@ export function createWorkspace(owner: Member): State {
     { id: 'sprint-current', name: 'Current sprint', start: current, status: 'draft' },
     { id: 'sprint-next', name: 'Next sprint', start: dateAdd(current, 14), status: 'draft' },
   ];
+  applySetups(state, false);
   return state;
 }

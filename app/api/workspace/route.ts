@@ -1,5 +1,6 @@
 import { getCurrentUser } from '@/lib/session';
 import { readWorkspace, initializeWorkspace, saveWorkspace } from '@/lib/workspace-store';
+import { applySetups } from '@/lib/setups';
 import { isBootstrapAdmin } from '@/lib/bootstrap';
 import { report, type State, type Member } from '@/lib/planner';
 import { applyCommand, DomainError } from '@/lib/actions';
@@ -14,6 +15,7 @@ async function context(){
  let saved=await readWorkspace();
  if(!saved){if(!isBootstrapAdmin(user.email))throw new DomainError('Your account has not been granted access to this planner.',403);const owner:Member={id:user.userId,email:user.email,name:user.fullName??user.email,role:'admin'};saved=await initializeWorkspace(owner);}
  if(!saved)throw new DomainError('Unable to load workspace.',503);
+ {const next=structuredClone(saved.state);if(applySetups(next)&&await saveWorkspace(next,saved.revision))saved={revision:saved.revision+1,state:next};}
  const member=saved.state.members.find(m=>m.email.toLowerCase()===user.email.toLowerCase());
  if(!member)throw new DomainError('Your account has not been granted access to this planner.',403);
  return {...saved,member};
